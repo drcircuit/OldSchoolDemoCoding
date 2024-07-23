@@ -1,0 +1,87 @@
+#include <stdio.h>
+#include <dos.h>
+#include <alloc.h>
+
+#define SET_MODE 	0x00
+#define TEXT_MODE	0x03
+#define VGA_MODE	0x13
+#define VIDEO_INT 	0x10
+
+
+#define SCR_H 200
+#define SCR_W 320
+
+typedef unsigned char byte;
+
+byte far *VGA=(byte far *)0xA0000000L;
+
+/* MACRO for reading and writing to VGA memory - NO YOU DO NOT WANT THE FUNCTION CALL OVERHEAD!! */
+#define SETPIX(x,y,c) *(VGA+(x)+(y)*SCR_W)=c
+#define GETPIX(x,y) *(VGA+(x)+(y)*SCR_W)
+#define NUM_COLORS 256
+
+#define PALETTE_IDX 0x3C8
+#define PALETTE_DAT 0x3C9
+
+#define MAX(x,y) ((x) > (y) ? (x) : (y))
+#define MIN(x,y) ((x) < (y) ? (x) : (y))
+
+
+void set_mode(byte mode) {
+  union REGS regs;
+  regs.h.ah = SET_MODE;
+  regs.h.al = mode;
+  int86(VIDEO_INT, &regs, &regs);
+}
+
+
+void draw_bg() {
+  int x, y;
+
+  for(y=0;y<SCR_H;++y){
+    for(x=0;x<SCR_W;++x){
+      SETPIX(x, y, y);
+    }
+  }
+}
+
+byte *sky_pal() {
+  byte *pal;
+  int i;
+  pal = malloc(NUM_COLORS * 3);
+  for(i = 0;i<100;++i){
+    pal[i*3 + 0] = MIN(63, i);
+    pal[i*3 + 1] = MIN(63, i);
+    pal[i*3 + 2] = 63;
+  }
+  for(i = 100;i<200;++i) {
+    pal[i*3 + 0] = 5;
+    pal[i*3 + 1] = (i - 100) /2;
+    pal[i*3 + 2] = 5;
+  }
+  return pal;
+}
+
+void set_pal(byte *pal) {
+  int i;
+
+  outp(PALETTE_IDX, 0);
+  for(i = 0;i<NUM_COLORS*3;++i) {
+   outp(PALETTE_DAT, pal[i]);
+  }
+}
+
+int main() {
+  char name[30];
+  byte *pal;
+  set_mode(VGA_MODE);
+
+  pal = sky_pal();
+  set_pal(pal);
+  draw_bg();
+
+  printf("HELLO, WORLD!\n");
+  scanf(" ");
+  set_mode(TEXT_MODE);
+  return 0;
+}
